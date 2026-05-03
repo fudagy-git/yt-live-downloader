@@ -1,0 +1,93 @@
+name: Build Windows EXE & macOS DMG
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yt-dlp pyinstaller
+
+      - name: Build EXE
+        run: |
+          pyinstaller `
+            --onefile `
+            --windowed `
+            --name "YTLiveDownloader" `
+            --hidden-import yt_dlp `
+            --hidden-import yt_dlp.utils `
+            --hidden-import yt_dlp.extractor `
+            --collect-all yt_dlp `
+            --clean `
+            --noconfirm `
+            yt_live_downloader.py
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YTLiveDownloader-Windows
+          path: dist/YTLiveDownloader.exe
+          retention-days: 7
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yt-dlp pyinstaller
+
+      - name: Build APP
+        run: |
+          pyinstaller \
+            --onefile \
+            --windowed \
+            --name "YTLiveDownloader" \
+            --hidden-import yt_dlp \
+            --hidden-import yt_dlp.utils \
+            --hidden-import yt_dlp.extractor \
+            --collect-all yt_dlp \
+            --clean \
+            --noconfirm \
+            yt_live_downloader.py
+
+      - name: Create DMG
+        run: |
+          # staging 폴더에 .app 복사
+          mkdir -p dmg_staging
+          cp -r "dist/YTLiveDownloader" dmg_staging/
+
+          # hdiutil로 DMG 생성
+          hdiutil create \
+            -volname "YTLiveDownloader" \
+            -srcfolder dmg_staging \
+            -ov \
+            -format UDZO \
+            YTLiveDownloader.dmg
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YTLiveDownloader-macOS
+          path: YTLiveDownloader.dmg
+          retention-days: 7
