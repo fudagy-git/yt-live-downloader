@@ -56,34 +56,51 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install yt-dlp pyinstaller
+          # tkinter는 python.org 빌드에 내장되어 있음
+          python3 -c "import tkinter; print('tkinter OK')"
 
-      - name: Build APP
+      - name: Build macOS .app bundle
         run: |
+          # --onedir + --windowed = 올바른 .app 번들 생성
           pyinstaller \
-            --onefile \
+            --onedir \
             --windowed \
             --name "YTLiveDownloader" \
             --hidden-import yt_dlp \
             --hidden-import yt_dlp.utils \
             --hidden-import yt_dlp.extractor \
+            --hidden-import tkinter \
+            --hidden-import tkinter.ttk \
+            --hidden-import tkinter.filedialog \
+            --hidden-import tkinter.messagebox \
+            --hidden-import tkinter.scrolledtext \
             --collect-all yt_dlp \
             --clean \
             --noconfirm \
             yt_live_downloader.py
 
-      - name: Create DMG
-        run: |
-          # staging 폴더에 .app 복사
-          mkdir -p dmg_staging
-          cp -r "dist/YTLiveDownloader" dmg_staging/
+          # .app 번들 확인
+          ls -la dist/
+          ls -la "dist/YTLiveDownloader.app/Contents/MacOS/" || true
 
-          # hdiutil로 DMG 생성
+      - name: Create DMG with Applications symlink
+        run: |
+          # DMG 스테이징 폴더
+          mkdir -p dmg_staging
+          cp -r "dist/YTLiveDownloader.app" dmg_staging/
+          # Applications 폴더 심볼릭 링크 (드래그 앤 드롭 설치용)
+          ln -s /Applications dmg_staging/Applications
+
+          # hdiutil로 정식 DMG 생성
           hdiutil create \
             -volname "YTLiveDownloader" \
             -srcfolder dmg_staging \
             -ov \
             -format UDZO \
+            -imagekey zlib-level=9 \
             YTLiveDownloader.dmg
+
+          ls -lh YTLiveDownloader.dmg
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
